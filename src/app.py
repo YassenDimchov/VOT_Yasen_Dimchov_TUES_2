@@ -2,18 +2,34 @@ from flask import Flask, request, jsonify, send_file
 import boto3
 from keycloak import KeycloakOpenID
 from io import BytesIO
+import botocore.exceptions
 
 app = Flask(__name__)
 
 minio_client = boto3.client(
     's3',
-    endpoint_url='http://localhost:9000',
+    endpoint_url='http://minio:9000',
     aws_access_key_id='minioadmin',
     aws_secret_access_key='minioadmin'
 )
 
+
 bucket_name = 'my-bucket'
-minio_client.create_bucket(Bucket=bucket_name)
+
+def create_bucket_if_not_exists(bucket_name):
+    try:
+        response = minio_client.list_buckets()
+        existing_buckets = [bucket['Name'] for bucket in response['Buckets']]
+        
+        if bucket_name not in existing_buckets:
+            minio_client.create_bucket(Bucket=bucket_name)
+            print(f"Bucket {bucket_name} created.")
+        else:
+            print(f"Bucket {bucket_name} already exists.")
+    except botocore.exceptions.EndpointConnectionError as e:
+        print(f"Error connecting to MinIO: {e}")
+
+create_bucket_if_not_exists(bucket_name)
 
 keycloak_openid = KeycloakOpenID(
     server_url="http://localhost:8080/auth/",
@@ -24,14 +40,24 @@ keycloak_openid = KeycloakOpenID(
 
 def verify_token(token):
     try:
+        print(f"Verifying token: {token}")
         keycloak_openid.userinfo(token)
         return True
     except Exception as e:
+        print(f"Error verifying token: {e}")
         return False
+
+
+@app.route('/')
+def home():
+    return jsonify({"message": "Welcome to the Flask app!"}), 200
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    token = request.headers.get('Authorization', '').split(' ')[-1]
+    token = request.headers.get('Authorization')
+    if not token or 'Bearer ' not in token:
+        return jsonify({"error": "Token missing or invalid"}), 400
+    token = token.split(' ')[-1]
     if not verify_token(token):
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -46,7 +72,10 @@ def upload_file():
 
 @app.route('/download/<file_id>', methods=['GET'])
 def download_file(file_id):
-    token = request.headers.get('Authorization', '').split(' ')[-1]
+    token = request.headers.get('Authorization')
+    if not token or 'Bearer ' not in token:
+        return jsonify({"error": "Token missing or invalid"}), 400
+    token = token.split(' ')[-1]
     if not verify_token(token):
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -56,7 +85,10 @@ def download_file(file_id):
 
 @app.route('/update/<file_id>', methods=['PUT'])
 def update_file(file_id):
-    token = request.headers.get('Authorization', '').split(' ')[-1]
+    token = request.headers.get('Authorization')
+    if not token or 'Bearer ' not in token:
+        return jsonify({"error": "Token missing or invalid"}), 400
+    token = token.split(' ')[-1]
     if not verify_token(token):
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -71,7 +103,10 @@ def update_file(file_id):
 
 @app.route('/delete/<file_id>', methods=['DELETE'])
 def delete_file(file_id):
-    token = request.headers.get('Authorization', '').split(' ')[-1]
+    token = request.headers.get('Authorization')
+    if not token or 'Bearer ' not in token:
+        return jsonify({"error": "Token missing or invalid"}), 400
+    token = token.split(' ')[-1]
     if not verify_token(token):
         return jsonify({"error": "Unauthorized"}), 401
 

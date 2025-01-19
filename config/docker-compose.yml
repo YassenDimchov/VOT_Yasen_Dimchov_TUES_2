@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build:
+      context: ..
+      dockerfile: config/Dockerfile
     container_name: flask_app
     ports:
       - "5000:5000"
@@ -13,7 +15,7 @@ services:
       - KEYCLOAK_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=my-realm
       - KEYCLOAK_CLIENT=my-client
-      - KEYCLOAK_SECRET=my-client-secret 
+      - KEYCLOAK_SECRET=my-client-secret
     depends_on:
       - minio
       - keycloak
@@ -22,34 +24,43 @@ services:
 
   minio:
     image: minio/minio
-    container_name: minio
-    environment:
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
     ports:
       - "9000:9000"
-    command: server /data
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - minio_data:/data
     networks:
       - app-network
+    command: server /data
+
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:17.0.0
     container_name: keycloak
     environment:
-      - KEYCLOAK_USER=admin
-      - KEYCLOAK_PASSWORD=admin
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
     ports:
       - "8080:8080"
     command:
       - start-dev
     networks:
       - app-network
+    # Optional: Add a health check for Keycloak
+    # Uncomment if Keycloak needs to be ready before Flask starts
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080/realms/master"]
+    #   interval: 30s
+    #   retries: 5
+    #   start_period: 10s
+    #   timeout: 10s
 
 volumes:
   minio_data:
-
+  
 networks:
   app-network:
     driver: bridge
