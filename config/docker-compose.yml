@@ -28,14 +28,13 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      - "MINIO_ROOT_USER=minioadmin"
+      - "MINIO_ROOT_PASSWORD=minioadmin"
     volumes:
       - minio_data:/data
     networks:
       - app-network
     command: server /data
-
 
   keycloak:
     image: quay.io/keycloak/keycloak:17.0.0
@@ -49,14 +48,6 @@ services:
       - start-dev
     networks:
       - app-network
-    # Optional: Add a health check for Keycloak
-    # Uncomment if Keycloak needs to be ready before Flask starts
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8080/realms/master"]
-    #   interval: 30s
-    #   retries: 5
-    #   start_period: 10s
-    #   timeout: 10s
 
 volumes:
   minio_data:
